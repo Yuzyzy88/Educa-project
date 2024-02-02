@@ -8,7 +8,7 @@ services:
             - POSTGRES_DB=postgres
             - POSTGRES_USER=postgres
             - POSTGRES_PASSWORD=postgres
-    
+
     cache:
         image: redis:7.0.4
         restart: always
@@ -17,12 +17,39 @@ services:
 
     web:
         build: .
-        command: python /code/educa/manage.py runserver 0.0.0.0:8000
+        # command: python /code/educa/manage.py runserver 0.0.0.0:8000
+        command:  uwsgi --ini /code/config/uwsgi/uwsgi.ini --thunder-lock
         restart: always
         volumes:
             - .:/code
         ports:
             - "8000:8000"
+        environment:
+            - DJANGO_SETTINGS_MODULE=educa.settings.prod
+            - POSTGRES_DB=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+        depends_on:
+            - db
+            - cache
+
+    nginx:
+        image: nginx:1.23.1
+        restart: always
+        volumes:
+            - ./config/nginx:/etc/nginx/templates
+            - .:/code
+        ports:
+            - "80:80"
+            - "443:443"
+
+    daphne:
+        build: .
+        working_dir: /code/educa/
+        command: daphne -u /code/educa/daphne.sock educa.asgi:application
+        restart: always
+        volumes:
+            - .:/code
         environment:
             - DJANGO_SETTINGS_MODULE=educa.settings.prod
             - POSTGRES_DB=postgres
